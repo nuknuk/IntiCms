@@ -1,0 +1,229 @@
+﻿@{
+    ViewBag.Title = "IntiCms Admin";
+}
+<html>
+<head>
+    <script src="~/Scripts/jquery-1.8.2.js"> </script>
+    <script src="~/Scripts/knockout-2.2.0.js"> </script>
+    <style type="text/css">
+        button
+        {
+            border-style: solid;
+        }
+
+        #deleteEntry
+        {
+            color: #A00;
+        }
+
+        body, .left-col
+        {
+            font-family: arial,sans-serif;
+            background-color: #AAA;
+        }
+
+        div.main
+        {
+            height: 100%;
+        }
+
+        .left-col
+        {
+            float: left;
+            width: 300px;
+            color: #ffffff;
+        }
+
+        .edit-zone
+        {
+            float: left;
+            width: 600px;
+            background-color: #ffffff;
+            color: #222;
+        }
+
+        #editEntry td
+        {
+            padding: 6px;
+        }
+    </style>
+</head>
+<body>
+    <h2>IntiCms Admin</h2>
+
+    <div class="main">
+
+        <div class="left-col">
+            <button data-bind="click: GetEntries">Load'em all</button>
+            <ol data-bind="foreach: Entries">
+                <li>
+                    <dd><span data-bind="text: Slug"></span></dd>
+                    <dt><a href="#" data-bind="click: $parent.SelectEntry ">select</a><span data-bind="text: Title"></span></dt>
+
+                </li>
+            </ol>
+        </div>
+        <div class="edit-zone">
+            <table id="editEntry">
+                <tr>
+                    <td>Author</td>
+                    <td>
+                        <input data-bind="value: CurrentEntry().Author" /></td>
+                </tr>
+                <tr>
+                    <td>Slug</td>
+                    <td>
+                        <input data-bind="value: CurrentEntry().Slug" /></td>
+                </tr>
+                <tr>
+                    <td>Title</td>
+                    <td>
+                        <input data-bind="value: CurrentEntry().Title" /></td>
+                </tr>
+                <tr>
+                    <td>Summary</td>
+                    <td>
+                        <textarea data-bind="value: CurrentEntry().Summary"></textarea></td>
+                </tr>
+                <tr>
+                    <td>Body</td>
+                    <td>
+                        <textarea data-bind="value: CurrentEntry().Body"></textarea></td>
+                </tr>
+                <tr>
+                    <td>Tags</td>
+                    <td>
+                        <input data-bind="value: CurrentEntry().Tags" /></td>
+                </tr>
+                <tr>
+                    <td>Created</td>
+                    <td>
+                        <input data-bind="value: CurrentEntry().Created" /></td>
+                </tr>
+                <tr>
+                    <td>Visible On</td>
+                    <td>
+                        <input data-bind="value: CurrentEntry().VisibleOn" /></td>
+                </tr>
+            </table>
+            <button data-bind="click: Save">Save</button>
+            <button data-bind="click: NewEntry">New Entry</button>
+            <button id="deleteEntry" data-bind="click: Delete">x</button>
+        </div>
+    </div>
+    <script type="text/javascript">
+        $(function () {
+            function appViewModel() {
+                var self = this;
+                self.getEmptyEntry = function () {
+                    return {
+                        Author: '',
+                        Body: '',
+                        Created: new Date(),
+                        Slug: '',
+                        Summary: '',
+                        Tags: '',
+                        Title: '',
+                        VisibleOn: new Date(),
+                        OldSlug: ''
+                    };
+                };
+                self.Entries = ko.observableArray([]);
+                self.CurrentEntry = ko.observable(self.getEmptyEntry());
+                self.GetEntries = function () {
+
+                    // clear current
+                    self.CurrentEntry(self.getEmptyEntry());
+                    // clear all others
+
+                    self.Entries([]);
+
+                    $.getJSON("/api/Entry",
+                        function (data) {
+                            $.each(data, function (key, item) {
+                                var tagsAsString = self.arrayToTags(item.Tags);
+                                var entry = {
+                                    Author: item.Author,
+                                    Body: item.Body,
+                                    Created: item.Created,
+                                    Slug: item.Slug,
+                                    Summary: item.Summary,
+                                    Tags: tagsAsString,
+                                    Title: item.Title,
+                                    VisibleOn: item.VisibleOn,
+                                    OldSlug: item.Slug,
+                                };
+                                self.Entries.push(entry);
+                            });
+                        });
+                };
+
+                self.Save = function () {
+                    var currentEntry = self.CurrentEntry(),
+                        tagsAsArray = self.tagsToArray(currentEntry.Tags),
+                        entry = {
+                            Author: currentEntry.Author,
+                            Body: currentEntry.Body,
+                            Created: currentEntry.Created,
+                            Slug: currentEntry.Slug,
+                            Summary: currentEntry.Summary,
+                            Tags: tagsAsArray,
+                            Title: currentEntry.Title,
+                            VisibleOn: currentEntry.VisibleOn
+                        };
+
+                    if (self.isNewSlug(currentEntry)) {
+                        self.deleteBySlug(currentEntry.OldSlug);
+                    }
+                    $.post('/api/Entry', entry, self.GetEntries);
+                };
+
+                self.Delete = function () {
+                    var slug = self.CurrentEntry().Slug;
+                    self.deleteBySlug(slug, self.GetEntries);
+
+                };
+                self.SelectEntry = function (entry) {
+                    self.CurrentEntry(entry);
+                };
+                self.NewEntry = function () {
+                    self.CurrentEntry(self.getEmptyEntry());
+                };
+                self.isNewSlug = function (entry) {
+                    if (entry.OldSlug == '') {
+                        // new entry alltogether
+                        return false;
+                    }
+                    // entry had different slug than the current one
+                    return entry.Slug.toLowerCase() != entry.OldSlug.toLowerCase();
+                };
+                self.deleteBySlug = function (slug, successCallback) {
+                    var callback = successCallback ? successCallback : function () { };
+                    $.ajax({
+                        url: '/api/entry/' + slug,
+                        type: "DELETE",
+                        success: callback
+                    });
+                };
+                self.arrayToTags = function (arr) {
+                    if (arr && arr.length > 0) {
+                        return arr.toString();
+                    } else {
+                        return '';
+                    }
+                };
+                self.tagsToArray = function (str) {
+                    if (str && str.length > 0) {
+                        return str.split(/[\s,]+/);
+                    }
+                    else {
+                        return [];
+                    }
+                };
+            }
+
+            ko.applyBindings(new appViewModel());
+        });
+    </script>
+</body>
+</html>

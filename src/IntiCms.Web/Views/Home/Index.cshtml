@@ -1,0 +1,23 @@
+﻿@model IList<IntiCms.ValueObjects.Entry>
+
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>title</title>
+    </head>
+    <body>
+        <div>
+              @foreach (var entry in Model)
+              {
+                  <fieldset >
+                      <div >@entry.Title</div>
+                      <div >@entry.Author</div>
+                      <div >@entry.Created</div>
+                      <div >@entry.Summary</div>
+                      <div >@entry.Body</div>
+                  </fieldset>
+              }
+        </div>
+    </body>
+</html>
